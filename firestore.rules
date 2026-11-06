@@ -1,0 +1,93 @@
+rules_version = '2';
+// R Lab security rules. Paste into Firebase console → Firestore → Rules → Publish.
+// If your school domain is different, change it in schoolEmail() AND in js/config.js.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function schoolEmail() {
+      return signedIn() && request.auth.token.email.lower().matches('.*@g[.]batstate-u[.]edu[.]ph$');
+    }
+    function isInstructor() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/instructors/$(request.auth.token.email.lower()));
+    }
+
+    // Instructor list: managed by hand in the Firebase console (doc ID = email, lowercase).
+    match /instructors/{email} {
+      allow get: if signedIn() && request.auth.token.email.lower() == email;
+      allow list: if isInstructor();
+      allow write: if false;
+    }
+
+    match /activities/{aid} {
+      // Students can open an activity by its code only when it isn't a draft. They can't list activities.
+      allow get: if isInstructor() || (schoolEmail() && resource.data.status in ['open', 'closed']);
+      allow list, write: if isInstructor();
+
+      // Hidden tests + reference solutions: instructors only.
+      match /private/{docId} {
+        allow read, write: if isInstructor();
+      }
+
+      match /attempts/{uid} {
+        function act() { return get(/databases/$(database)/documents/activities/$(aid)).data; }
+        function counterKeys() { return ['tab', 'tabSec', 'blur', 'blurSec', 'fs', 'paste', 'copy', 'burst', 'offline']; }
+        function zeroCounts() {
+          return {'tab': 0, 'tabSec': 0, 'blur': 0, 'blurSec': 0, 'fs': 0, 'paste': 0, 'copy': 0, 'burst': 0, 'offline': 0};
+        }
+        // Flag counters can only go up: a student can't erase their own flags.
+        function countersOnlyGrow() {
+          let n = request.resource.data.counts;
+          let o = resource.data.counts;
+          return n.keys().hasOnly(counterKeys()) &&
+            n.tab >= o.tab && n.tabSec >= o.tabSec && n.blur >= o.blur && n.blurSec >= o.blurSec &&
+            n.fs >= o.fs && n.paste >= o.paste && n.copy >= o.copy && n.burst >= o.burst && n.offline >= o.offline;
+        }
+        function withinTime() {
+          return request.time < resource.data.startedAt +
+            duration.value(int(act().durationMin) + int(resource.data.get('extraMin', 0)) + 2, 'm');
+        }
+
+        allow read: if isInstructor() || (request.auth != null && request.auth.uid == uid);
+
+        allow create: if schoolEmail() && request.auth.uid == uid
+          && act().status == 'open'
+          && request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'startedAt', 'lastSeen', 'status', 'code', 'explain', 'typing', 'counts', 'env'])
+          && request.resource.data.uid == uid
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.startedAt == request.time
+          && request.resource.data.status == 'in_progress'
+          && request.resource.data.counts == zeroCounts();
+
+        // Students: only while in progress, activity open, within the time limit (+2 min grace).
+        // They can never touch grade, extraMin, startedAt, email or name.
+        allow update: if isInstructor() || (
+          request.auth != null && request.auth.uid == uid
+          && resource.data.status == 'in_progress'
+          && act().status == 'open'
+          && withinTime()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['code', 'explain', 'typing', 'counts', 'env', 'lastSeen', 'status', 'submittedAt'])
+          && request.resource.data.status in ['in_progress', 'submitted']
+          && countersOnlyGrow()
+        );
+
+        allow delete: if isInstructor();
+
+        // Activity log: students can add entries but never edit or delete them.
+        match /events/{eid} {
+          allow read: if isInstructor();
+          allow create: if request.auth != null && request.auth.uid == uid
+            && request.resource.data.keys().hasOnly(['type', 'detail', 'p', 'clientT', 't', 'code'])
+            && request.resource.data.t == request.time
+            && request.resource.data.type is string && request.resource.data.type.size() < 40
+            && (!('code' in request.resource.data) || request.resource.data.code.size() < 20000);
+          allow update, delete: if false;
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Instructor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">R</span><span><span data-app-name></span> <small>Instructor</small></span></div>
+  <span class="grow"></span>
+  <div class="who" id="who"></div>
+  <button id="logoutBtn" class="sm ghost" hidden>Sign out</button>
+</div>
+
+<section id="vSignin" class="center" hidden>
+  <div class="panel card">
+    <header><h1>Instructor sign-in</h1><p class="muted">Create activities, monitor students live, and grade R submissions.</p></header>
+    <div class="stack">
+      <button id="signinBtn" class="primary" style="padding:12px">Sign in with Google</button>
+      <p id="signinErr" class="small" style="color:var(--fail)" hidden></p>
+    </div>
+  </div>
+</section>
+
+<section id="vApp" hidden>
+  <div class="ilayout">
+    <aside class="sidebar">
+      <button id="newBtn" class="primary">+ New activity</button>
+      <div class="lbl" style="margin-top:6px">Activities</div>
+      <div class="alist" id="alist"><p class="small muted">No activities yet.</p></div>
+    </aside>
+    <main class="main" id="main">
+      <div id="empty" class="card"><h2>Welcome</h2><p class="muted" style="margin-top:6px">Create an activity or pick one on the left.</p></div>
+      <div id="act" hidden class="stack">
+        <div class="row">
+          <div class="grow"><div class="lbl">Activity code <span id="aCodeLbl"></span></div><h2 id="aTitle"></h2></div>
+          <span id="aStatus"></span>
+        </div>
+        <div class="tabs">
+          <button data-tab="setup" class="on">Setup</button>
+          <button data-tab="monitor">Live monitor</button>
+          <button data-tab="results">Grades & integrity</button>
+        </div>
+
+        <!-- SETUP -->
+        <div id="tSetup" class="stack">
+          <div class="card stack">
+            <div class="grid2">
+              <label class="field"><span>Activity code</span><input id="fCode" class="codeinput" style="font-size:18px" maxlength="12"></label>
+              <label class="field"><span>Status</span>
+                <select id="fStatus"><option value="draft">Draft (hidden from students)</option><option value="open">Open (students can join)</option><option value="closed">Closed (no more work accepted)</option></select></label>
+              <label class="field"><span>Time limit (minutes)</span><input id="fDur" type="number" min="1" value="60"></label>
+              <label class="field"><span>R packages (comma-separated)</span><input id="fPkgs" placeholder="dplyr, ggplot2"></label>
+            </div>
+            <label class="field"><span>Title</span><input id="fTitle" placeholder="Lab 3: Data Wrangling with dplyr"></label>
+            <label class="field"><span>Instructions shown before starting</span><textarea id="fInstr" placeholder="Answer all problems. Use the data provided in each problem."></textarea></label>
+            <div class="row">
+              <label class="row small"><input type="checkbox" id="fPaste"> Allow pasting from outside the editor</label>
+              <label class="row small"><input type="checkbox" id="fExplain" checked> Require a written explanation per problem</label>
+            </div>
+            <div id="linkBox" class="notice small" hidden></div>
+          </div>
+          <div class="row"><h3 class="grow">Problems</h3><button id="sampleBtn" class="sm">Load sample problems</button><button id="addProbBtn" class="sm">+ Add problem</button></div>
+          <div id="probs" class="stack"></div>
+          <div class="row" style="position:sticky;bottom:0;background:var(--bg);padding:10px 0">
+            <span id="saveMsg" class="small muted grow"></span>
+            <button id="saveBtn" class="primary">Save activity</button>
+          </div>
+          <details class="card small">
+            <summary style="cursor:pointer;font-weight:600">How tests work</summary>
+            <div class="stack" style="margin-top:10px">
+              <p>Write one test per line: <code>points | description | R expression</code>. A test passes when the expression is <code>TRUE</code>.</p>
+              <p>Inside a test you can use the student's variables, <code>.ref</code> (a fresh copy of the setup data, so students can't tamper with it), and <code>.output</code> (everything their code printed).</p>
+              <pre>2 | total_sales is correct | abs(total_sales - sum(.ref$sales$amount)) &lt; 0.01
+1 | prints the total | grepl("Total", .output)
+2 | uses group_by | grepl("group_by", .code)</pre>
+              <p><b>Unique data per student:</b> the setup code gets a <code>.seed</code> unique to each student. Start setup with <code>set.seed(.seed)</code> and generate data randomly, so every student gets different numbers and answers can't be shared. Tests compare against <code>.ref</code>, so grading still works.</p>
+              <p><b>Sample tests</b> are visible to students (they can check them). <b>Hidden tests</b> and the <b>reference solution</b> are stored privately and only run here when you grade.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- MONITOR -->
+        <div id="tMonitor" class="stack" hidden>
+          <div class="stats" id="mStats"></div>
+          <div class="row small muted"><span>Updates live. Click a student for their timeline, code replay and details.</span><span class="grow"></span>
+            <input id="mSearch" placeholder="Search name or email" style="max-width:240px"></div>
+          <div class="tablewrap"><table class="t" id="mTable"></table></div>
+        </div>
+
+        <!-- RESULTS -->
+        <div id="tResults" class="stack" hidden>
+          <div class="card stack">
+            <div class="row">
+              <button id="gradeBtn" class="primary">Grade submissions</button>
+              <label class="row small"><input type="checkbox" id="gradeAll"> Include students still in progress</label>
+              <label class="row small"><input type="checkbox" id="regrade"> Re-grade already graded</label>
+              <span class="grow"></span>
+              <button id="simBtn">Check code similarity</button>
+              <button id="csvBtn">Export CSV</button>
+            </div>
+            <div id="gradeProg" hidden class="stack"><div class="progress"><i></i></div><span class="small muted"></span></div>
+            <p class="small muted">Grading runs the R code in this browser. Keep this tab open until it finishes. Each student is graded with their own data seed.</p>
+          </div>
+          <div id="simBox" hidden class="card stack"></div>
+          <div class="tablewrap"><table class="t" id="rTable"></table></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<aside id="drawer" class="drawer" hidden></aside>
+<script type="module" src="js/instructor.js"></script>
+</body>
+</html>

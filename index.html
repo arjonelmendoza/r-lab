@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Student</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/r/r.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">R</span><span><span data-app-name></span> <small data-course></small></span></div>
+  <div class="grow" id="examTitle" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+  <span id="flagCount" class="flagcount" hidden></span>
+  <span id="timer" class="timer" hidden>--:--</span>
+  <button id="submitBtn" class="primary" hidden>Submit</button>
+  <div class="who" id="who"></div>
+  <button id="logoutBtn" class="sm ghost" hidden>Sign out</button>
+</div>
+
+<!-- Sign in -->
+<section id="vSignin" class="center" hidden>
+  <div class="panel card">
+    <header>
+      <h1>R Programming Lab</h1>
+      <p class="muted">Sign in with your <b id="domainLbl"></b> Google account to join an activity.</p>
+    </header>
+    <div class="stack">
+      <button id="signinBtn" class="primary" style="padding:12px">Sign in with Google</button>
+      <p id="signinErr" class="small" style="color:var(--fail)" hidden></p>
+    </div>
+  </div>
+</section>
+
+<!-- Join -->
+<section id="vJoin" class="center" hidden>
+  <div class="panel card">
+    <header>
+      <h1>Join an activity</h1>
+      <p class="muted">Enter the activity code your instructor gave you.</p>
+    </header>
+    <form id="joinForm" class="stack">
+      <input id="codeIn" class="codeinput" maxlength="12" autocomplete="off" placeholder="CODE" required>
+      <button class="primary" style="padding:12px">Continue</button>
+      <p id="joinErr" class="small" style="color:var(--fail)" hidden></p>
+    </form>
+  </div>
+</section>
+
+<!-- Pre-start -->
+<section id="vIntro" class="center" hidden>
+  <div class="panel card stack">
+    <div><div class="lbl">Activity</div><h2 id="iTitle"></h2></div>
+    <div id="iMeta" class="row small muted"></div>
+    <div id="iInstr" class="prompt"></div>
+    <div class="notice">
+      <b>This activity is monitored.</b> Your instructor will see:
+      <ul>
+        <li>every time you switch tabs, leave the window, or exit fullscreen, and for how long</li>
+        <li>copy and paste attempts (pasting from outside the editor is blocked)</li>
+        <li>a replay of how your code was typed</li>
+        <li>whether a second monitor is connected</li>
+      </ul>
+      Your work is saved automatically. The timer keeps running if you close the page.
+    </div>
+    <label class="row small"><input type="checkbox" id="agree"> I will work on my own, without AI tools, classmates, or outside help.</label>
+    <div class="row"><button id="backBtn">Back</button><span class="grow"></span><button id="startBtn" class="primary" disabled>Start in fullscreen</button></div>
+    <p id="iMsg" class="small" hidden></p>
+  </div>
+</section>
+
+<!-- Exam -->
+<section id="vExam" hidden>
+  <div class="exam">
+    <div class="left">
+      <div class="ptabs" id="ptabs"></div>
+      <div class="lbl" id="pNum"></div>
+      <h2 id="pTitle" style="margin:4px 0 12px"></h2>
+      <div class="prompt" id="pPrompt"></div>
+      <div id="pHidden" class="small muted" style="margin-top:8px"></div>
+    </div>
+    <div class="right">
+      <div class="toolbar">
+        <button id="runBtn" class="primary">▶ Run <span class="small" style="opacity:.8">Ctrl+Enter</span></button>
+        <button id="checkBtn">Check sample tests</button>
+        <button id="resetBtn" class="ghost">Reset code</button>
+        <span class="grow"></span>
+        <span id="rStatus" class="small muted">Loading R…</span>
+        <span id="saveStatus" class="small muted"></span>
+      </div>
+      <div class="editor-wrap" id="editorWrap"></div>
+      <div class="explain" id="explainBox" hidden>
+        <label class="field"><span>Explain your code in your own words</span>
+        <textarea id="explainIn" placeholder="What does your code do, step by step?"></textarea></label>
+      </div>
+      <div class="output" id="output"><pre class="console"><span class="info">Output appears here. Press Run to execute your code.</span></pre></div>
+    </div>
+  </div>
+  <div class="watermark" id="watermark" aria-hidden="true"></div>
+</section>
+
+<!-- Done -->
+<section id="vDone" class="center" hidden>
+  <div class="panel card stack" style="text-align:center;align-items:center">
+    <h1 id="dTitle">Submitted</h1>
+    <p id="dMsg" class="muted"></p>
+    <button id="doneBtn">Back to start</button>
+  </div>
+</section>
+
+<!-- Lock overlay -->
+<div id="lock" class="lock" hidden>
+  <div class="box">
+    <h2 id="lockTitle">You left fullscreen</h2>
+    <p id="lockMsg">This has been recorded and your instructor can see it. Return to fullscreen to continue.</p>
+    <button id="lockBtn" class="primary">Return to fullscreen</button>
+  </div>
+</div>
+
+<script type="module" src="js/student.js"></script>
+</body>
+</html>
